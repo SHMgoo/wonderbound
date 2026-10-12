@@ -1,0 +1,67 @@
+
+# ============================================================
+# WONDERBOUND - LOCAL CONTAINER CONFIGURATION
+# ============================================================
+
+name: wonderbound
+
+services:
+
+  # ----------------------------------------------------------
+  # POSTGRESQL DATABASE
+  # ----------------------------------------------------------
+  db:
+    image: docker.io/library/postgres:16
+    container_name: wonderbound-db
+    environment:
+      POSTGRES_DB: wonderbound
+      POSTGRES_USER: wonderbound
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - wonderbound_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wonderbound -d wonderbound"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ----------------------------------------------------------
+  # DATABASE ADMINISTRATION
+  # ----------------------------------------------------------
+  adminer:
+    image: docker.io/library/adminer:latest
+    container_name: wonderbound-adminer
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8082:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # ----------------------------------------------------------
+  # WONDERBOUND APPLICATION
+  # ----------------------------------------------------------
+  backend:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile
+    container_name: wonderbound-backend
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: wonderbound
+      DB_USER: wonderbound
+      DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:8083:80"
+    depends_on:
+      db:
+        condition: service_healthy
+
+# ------------------------------------------------------------
+# PERSISTENT DATABASE STORAGE
+# ------------------------------------------------------------
+volumes:
+  wonderbound_pgdata:
